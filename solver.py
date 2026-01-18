@@ -1,5 +1,7 @@
 import random
 import os
+
+#-------Loading Data Phase-----------
 def getEncryptedText(textFile):
     base_dir = os.path.dirname(os.path.abspath(__file__))
     full_path = os.path.join(base_dir, textFile)
@@ -11,6 +13,9 @@ def getEncryptedText(textFile):
             realcipher.append(word)
         return text,realcipher
 
+plainEncrypted,encrypted_text = getEncryptedText("samplecipher.txt")
+
+
 def getFrequencyCount(text):
     frequency = {}
     for word in text:
@@ -21,24 +26,34 @@ def getFrequencyCount(text):
                 frequency[letter] = 1
     return frequency
 
+frequency = dict(sorted(getFrequencyCount(encrypted_text).items(), key = lambda x: x[1], reverse = True))
+
+
 def generateInitialKey(frequency):
+    keyCharacters=["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "@", "#", "$", "z", "y", "x", "w", "v", "u", "t", "s", "r", "q", "p", "o", "n"]
     usedSymbol = []
     key=[]
     for i,j in frequency.items():
         usedSymbol.append(i)
         key.append(i)
-    unused="z"
-    while unused in usedSymbol:
-        unused = chr(ord(unused[0])+1)
-    while len(usedSymbol) <= 25:
-        usedSymbol.append(unused)
-        key.append(unused)
+    for i in keyCharacters:
+        if i not in key:
+            key.append(i)
+            usedSymbol.append(i)
     freq_order = [4,19,0,14,8,13,17,18,7,3,11,20,2,12,5,24,22,6,15,1,21,10,23,16,9,25]
     ind=int(0)
     for i in freq_order:
         key[i]=usedSymbol[ind]
         ind=ind+1
     return key
+
+def generateRandomKey():
+    keyCharacters=["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "@", "#", "$", "z", "y", "x", "w", "v", "u", "t", "s", "r", "q", "p", "o", "n"]
+    random.shuffle(keyCharacters)
+    return keyCharacters
+
+initialKey=generateInitialKey(frequency)
+# initialKey = generateRandomKey()
 
 def decrypt(encryption, key):
     decryption = []
@@ -52,23 +67,126 @@ def decrypt(encryption, key):
         decryption.append(newWord)
     return decryption
 
-def ngramScore():
+def validWordS():
+    setOfWords=set()
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    full_path = os.path.join(base_dir, "dictionary.txt")
+    with open(full_path,"r") as f:
+        text = f.read().split()
+        for word in text:
+            setOfWords.add(word)
+    return setOfWords
 
-def validWordScore():
+validword=validWordS()
+
+def fourGramWords():
+    setof4gram={}
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    full_path = os.path.join(base_dir, "4gram.txt")
+    with open(full_path,"r") as f:
+        text=f.read().split()
+        i=0
+        while i+1 < len(text):
+            setof4gram[text[i]]=int(text[i+1])
+            i=i+2
+    return setof4gram
+
+valid4Gram=fourGramWords()
+
+#------- Actual Algorithm starts-----
+def ngramScore(decryption):
+    score=0
+    for word in decryption:
+        if len(word) >= 4:
+            i=0
+            j=3
+            while j <= len(word):
+                if word[i:j+1] in valid4Gram:
+                    score += valid4Gram[word[i:j+1]]
+                else:
+                    score -= 5
+                i=i+1
+                j=j+1
+    return score
+
+
+
+def validWordScore(decryption,validword):
+    score=0
+    for word in decryption:
+        if word in validword:
+            score+=1
+    return score
+
 
 def weight(decryption):
-    return 0.7 * ngramScore(decryption) + 0.3 * validWordScore(decryption)
+    return  ngramScore(decryption) + 0.0 * validWordScore(decryption,validword)
 
-def hillClimb():
+def generateAllNeighbours(key):
+    neighbours = []
+    n = len(key)
 
-def generateNeighbour():
+    for i in range(n):
+        for j in range(i + 1, n):
+            new_key = key.copy()
+            new_key[i], new_key[j] = new_key[j], new_key[i]
+            neighbours.append(new_key)
+
+    return neighbours
+
+# def hillClimb(key, encryption):
+#     currentKey = key
+#     currentScore = weight(decrypt(encryption, currentKey))
+
+#     while True:
+#         bestKey = currentKey
+#         bestScore = currentScore
+
+#         for k in generateAllNeighbours(currentKey):
+#             s = weight(decrypt(encryption, k))
+#             if s > bestScore:
+#                 bestScore = s
+#                 bestKey = k
+
+#         if bestScore <= currentScore:
+#             break
+
+#         currentKey = bestKey
+#         currentScore = bestScore
+
+#     return currentKey
+def hillClimb(key, encryption):
+    bestOverallKey = key
+    bestOverallScore = weight(decrypt(encryption, key))
+    restarts = 50
+    for _ in range(restarts):
+        currentKey = generateRandomKey()
+        currentScore = weight(decrypt(encryption, currentKey))
+
+        while True:
+            bestKey = currentKey
+            bestScore = currentScore
+
+            for k in generateAllNeighbours(currentKey):
+                s = weight(decrypt(encryption, k))
+                if s > bestScore:
+                    bestScore = s
+                    bestKey = k
+
+            if bestScore <= currentScore:
+                break   # local maximum → restart
+
+            currentKey = bestKey
+            currentScore = bestScore
+
+        if currentScore > bestOverallScore:
+            bestOverallScore = currentScore
+            bestOverallKey = currentKey
+
+    return bestOverallKey
 
 
-plainEncrypted,encrypted_text = getEncryptedText("samplecipher.txt")
-print(plainEncrypted)
-print(encrypted_text)
-frequency = dict(sorted(getFrequencyCount(encrypted_text).items(), key = lambda x: x[1], reverse = True))
-symbol=[]
-for key,value in frequency.items():
-    symbol.append(key)
-key=generateInitialKey(frequency)
+finalKey=hillClimb(initialKey,encrypted_text)
+print("key selected is: ",finalKey)
+print("decrypted text: ",decrypt(encrypted_text,finalKey))
+# print(ngramScore(decrypt(encrypted_text,"y5n8@p7q1xwu09$342vos6#xxx")))

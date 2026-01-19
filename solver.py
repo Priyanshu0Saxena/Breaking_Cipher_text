@@ -70,7 +70,7 @@ def decrypt(encryption, key):
 def validWordS():
     setOfWords=set()
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    full_path = os.path.join(base_dir, "dictionary.txt")
+    full_path = os.path.join(base_dir, "bigDictionary.txt")
     with open(full_path,"r") as f:
         text = f.read().split()
         for word in text:
@@ -111,16 +111,44 @@ def ngramScore(decryption):
 
 
 
-def validWordScore(decryption,validword):
+def validWordScore(decryption):
     score=0
     for word in decryption:
         if word in validword:
             score+=1
     return score
 
+def weightOfMostCommonWords(decrypted):
+    score=0
+    mostCommonWords = [
+    "the", "be", "to", "of", "and", "a", "in", "that", "have", "i",
+    "it", "for", "not", "on", "with", "he", "as", "you", "do", "at",
+    "this", "but", "his", "by", "from", "they", "we", "say", "her", "she",
+    "or", "an", "will", "my", "one", "all", "would", "there", "their",
+    "is", "are", "was", "were", "been", "being"
+    ]
+    for word in decrypted:
+        if word in mostCommonWords:
+            score = score+1
+    return score
+
+def weightOfCommonWords(decrypted):
+    score=0
+    commonWords = [
+    "if", "about", "who", "which", "when", "what", "so", "up", "out", "into",
+    "than", "then", "them", "these", "those", "because", "while", "where",
+    "how", "why", "after", "before", "over", "under", "again", "still",
+    "such", "many", "much", "more", "most", "some", "any", "each", "every",
+    "other", "same", "new", "old", "long", "great", "little", "own",
+    "right", "left", "high", "small", "large", "early", "late"
+    ]
+    for word in decrypted:
+        if word in commonWords:
+            score = score + 1
+    return score
 
 def weight(decryption):
-    return  ngramScore(decryption) + 0.0 * validWordScore(decryption,validword)
+    return 3*weightOfMostCommonWords(decryption) + 2* weightOfCommonWords(decryption) + validWordScore(decryption)
 
 def generateAllNeighbours(key):
     neighbours = []
@@ -134,31 +162,10 @@ def generateAllNeighbours(key):
 
     return neighbours
 
-# def hillClimb(key, encryption):
-#     currentKey = key
-#     currentScore = weight(decrypt(encryption, currentKey))
-
-#     while True:
-#         bestKey = currentKey
-#         bestScore = currentScore
-
-#         for k in generateAllNeighbours(currentKey):
-#             s = weight(decrypt(encryption, k))
-#             if s > bestScore:
-#                 bestScore = s
-#                 bestKey = k
-
-#         if bestScore <= currentScore:
-#             break
-
-#         currentKey = bestKey
-#         currentScore = bestScore
-
-#     return currentKey
 def hillClimb(key, encryption):
     bestOverallKey = key
     bestOverallScore = weight(decrypt(encryption, key))
-    restarts = 50
+    restarts = 10
     for _ in range(restarts):
         currentKey = generateRandomKey()
         currentScore = weight(decrypt(encryption, currentKey))
@@ -174,7 +181,8 @@ def hillClimb(key, encryption):
                     bestKey = k
 
             if bestScore <= currentScore:
-                break   # local maximum → restart
+                print(bestScore)
+                break  
 
             currentKey = bestKey
             currentScore = bestScore
@@ -189,4 +197,3 @@ def hillClimb(key, encryption):
 finalKey=hillClimb(initialKey,encrypted_text)
 print("key selected is: ",finalKey)
 print("decrypted text: ",decrypt(encrypted_text,finalKey))
-# print(ngramScore(decrypt(encrypted_text,"y5n8@p7q1xwu09$342vos6#xxx")))

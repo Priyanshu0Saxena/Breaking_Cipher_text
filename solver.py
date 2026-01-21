@@ -1,6 +1,6 @@
 import random
 import os
-
+import time
 #-------Loading Data Phase-----------
 def getEncryptedText(textFile):
     base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -109,7 +109,31 @@ def ngramScore(decryption):
                 j=j+1
     return score
 
+def bigramScore(decryption):
+    valid2gram = ["th","he","in","er","an","re","on","at","en","nd","ti","es","or","te","of","ed","is","it","al","ar","st","to","nt","ng","se","ha","as","ou","io","le","ve"]
+    score=0
+    for word in decryption:
+        i=0
+        j=2
+        while j <= len(word):
+            if word[i:j] in valid2gram:
+                score=score+1
+            i=i+1
+            j=j+1
+    return score
 
+def trigramScore(decryption):
+    valid3gram=["the","and","ing","her","ere","ent","tha","nth","was","eth","for","dth","has","hes","his","oft","sth","men","ion","all","tio","ver","ter","est","ers","ati","hat","ate","res"]
+    score=0
+    for word in decryption:
+        i=0
+        j=3
+        while j <= len(word):
+            if word[i:j] in valid3gram:
+                score=score+1
+            i=i+1
+            j=j+1
+    return score
 
 def validWordScore(decryption):
     score=0
@@ -148,7 +172,7 @@ def weightOfCommonWords(decrypted):
     return score
 
 def weight(decryption):
-    return 3*weightOfMostCommonWords(decryption) + 2* weightOfCommonWords(decryption) + validWordScore(decryption)
+    return 3*weightOfMostCommonWords(decryption) + 2* weightOfCommonWords(decryption) + validWordScore(decryption) + 0.5 * bigramScore(decryption) + 0.25 * trigramScore(decryption)
 
 def generateAllNeighbours(key):
     neighbours = []
@@ -164,36 +188,58 @@ def generateAllNeighbours(key):
 
 def hillClimb(key, encryption):
     bestOverallKey = key
-    bestOverallScore = weight(decrypt(encryption, key))
-    restarts = 10
+    decrypted = decrypt(encryption, key)
+    bestOverallScore = weight(decrypted)
+    bestOverallAccuracy = validWordScore(decrypted) / len(encryption)
+
+    restarts = 60
+    startTime=time.time()
+    timeLimit=56
     for _ in range(restarts):
         currentKey = generateRandomKey()
-        currentScore = weight(decrypt(encryption, currentKey))
+        decrypted = decrypt(encryption, currentKey)
+        currentScore = weight(decrypted)
+        currentAccuracy = validWordScore(decrypted) / len(encryption)
 
+        if currentAccuracy >= 0.9:
+            return currentKey
+        
         while True:
             bestKey = currentKey
             bestScore = currentScore
+            bestAccuracy = currentAccuracy
 
             for k in generateAllNeighbours(currentKey):
-                s = weight(decrypt(encryption, k))
+                d = decrypt(encryption, k)
+                s = weight(d)
+                acc = validWordScore(d) / len(encryption)
+
                 if s > bestScore:
                     bestScore = s
                     bestKey = k
+                    bestAccuracy = acc
 
             if bestScore <= currentScore:
-                print(bestScore)
-                break  
+                print("Score: ",bestScore," Accuracy : ", bestAccuracy)
+                break
 
             currentKey = bestKey
             currentScore = bestScore
+            currentAccuracy = bestAccuracy
 
         if currentScore > bestOverallScore:
             bestOverallScore = currentScore
             bestOverallKey = currentKey
+            bestOverallAccuracy = currentAccuracy
+
+        if bestOverallAccuracy >= 0.9:
+            break
+        if time.time() - startTime>=timeLimit:
+            print("Time taken: ",time.time()-startTime)
+            break
 
     return bestOverallKey
 
-
 finalKey=hillClimb(initialKey,encrypted_text)
 print("key selected is: ",finalKey)
-print("decrypted text: ",decrypt(encrypted_text,finalKey))
+print("decrypted text: "," ".join(decrypt(plainEncrypted,finalKey)))
